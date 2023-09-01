@@ -33,12 +33,6 @@ STATIC = os.path.join(BASE, 'static/')
 #: templates directory to render content from
 TEMPLATES = os.path.join(BASE, 'templates/')
 
-#: base image used to generate cover
-COVER_IMG = os.path.join(STATIC, 'img/cover.png')
-
-#: font used to generater cover text
-COVER_FONT = os.path.join(STATIC, 'fonts/free_mono.ttf')
-
 #: jinja2 environment to load templates
 jinja_env = Environment(loader=FileSystemLoader(TEMPLATES))
 
@@ -70,43 +64,6 @@ def copy_static(fpath: str, into: str):
     """copy static filepath into the `into` directory"""
     src = os.path.join(STATIC, fpath)
     copy_file(src, into)
-
-def generate_font(text: str, target_ratio: float, maxsize: int, maxwidth: int):
-    """generate font that fits the size of the image w/o overflow"""
-    size = 5
-    font = ImageFont.truetype(COVER_FONT, 5)
-    # iterate until the text size is just larger than the criteria
-    while font.getlength(text) <= target_ratio*maxwidth and size < maxsize:
-        size += 1
-        font = ImageFont.truetype(COVER_FONT, size)
-    return font
-
-def get_textsize(draw, text, font) -> Tuple[int, int]:
-    """retrieve text-size of the current draw image"""
-    if hasattr(draw, 'textbbox'):
-        return draw.textbbox((0, 0), text, font=font)[2:]
-    return draw.textsize(text, font=font)
-
-def generate_cover(title: str, author: str, images: str) -> str:
-    """generate cover image using PIL text overlay"""
-    title  = title.title()
-    author = author.title()
-    fill   = (255, 255, 255, 255)
-    with Image.open(COVER_IMG).convert("RGBA") as image:
-        width, height = image.size
-        draw = ImageDraw.Draw(image)
-        # draw title on the top of the cover
-        font = generate_font(title, 0.9, 60, width)
-        w, _ = get_textsize(draw, title, font=font)
-        draw.text(((width-w)/2, 10), title, font=font, fill=fill)
-        # draw author on the bottom of the cover
-        font = generate_font(title, 0.5, 40, width)
-        w, h = get_textsize(draw, author, font=font)
-        draw.text(((width-w)/2, height-int(h*1.5)), author, font=font, fill=fill)
-        # write cover directly into epub directory
-        fpath = os.path.join(images, 'cover.png')
-        image.save(fpath)
-        return 'cover.png'
 
 def get_extension(fname: str) -> str:
     """get extension of the given filename"""
@@ -148,12 +105,12 @@ class EpubSpec:
     """
     title:     str
     creator:   str            = 'pypub'
+    subtitle:  str            = ''
     language:  str            = 'en'
     rights:    str            = ''
     publisher: str            = 'pypub'
     encoding:  str            = 'utf-8'
     date:      datetime       = field(default_factory=datetime.now)
-    cover:     Optional[str]  = None
     epub_dir:  Optional[str]  = None
     factory:   ChapterFactory = field(repr=False, default_factory=SimpleChapterFactory)
     logger:    Logger         = field(repr=False, default=default_logger)
@@ -171,7 +128,6 @@ class EpubBuilder:
         self.factory  = epub.factory
         self.encoding = epub.encoding
         self.dirs:     Optional[EpubDirs]    = None
-        self.cover:    Optional[str]         = None
         self.template: Optional[Template]    = None
         self.chapters: List[AssignedChapter] = []
     
@@ -191,8 +147,7 @@ class EpubBuilder:
             self.template = jinja_env.get_template('page.xhtml.j2')
         if self.dirs:
             return self.dirs
-        args = (self.epub.title, self.epub.creator)
-        self.logger.info('generating: %r (by: %s)' % args)
+        
         # generate base directories and copy static files
         self.dirs = epub_dirs(self.epub.epub_dir)
         copy_static('mimetype', self.dirs.basedir)
@@ -201,18 +156,14 @@ class EpubBuilder:
         copy_static('css/styles.css', self.dirs.styles)
         for path in self.epub.css_paths:
             copy_file(path, self.dirs.styles)
-        # generate cover-image
-        if self.epub.cover is not None:
-            self.cover = os.path.basename(self.epub.cover)
-            copy_file(self.epub.cover, self.dirs.images)
-        else:
-            self.logger.info('generating cover-image (%r by %r)' % args)
-            self.cover = generate_cover(*args, self.dirs.images)
-        # render cover-image
         fpath    = os.path.join(self.dirs.oebps, 'coverpage.xhtml')
-        template = jinja_env.get_template('coverpage.xhtml.j2')
+        kwargs = {
+            'epub':     self.epub, 
+            'styles':   os.listdir(self.dirs.styles),
+        }
+        # content  = template.render(**kwargs)
         with open(fpath, 'w', encoding=self.encoding) as f:
-            cover = template.render(cover=os.path.join('images', self.cover))
+            cover = self.template.render(**kwargs)
             f.write(cover)
         return self.dirs
 
@@ -234,25 +185,22 @@ class EpubBuilder:
 
     def index(self):
         """build index files for epub before finalizing"""
-        if not self.dirs or not self.cover:
+        if not self.dirs:
             raise RuntimeError('cannot index epub before `begin`')
         kwargs = {
             'uid':      self.uid,
             'epub':     self.epub, 
-            'cover':    MimeFile(self.cover, get_extension(self.cover)),
             'styles':   os.listdir(self.dirs.styles),
             'chapters': self.chapters,
             'images':   [
                 MimeFile(fname, get_extension(fname))
                 for fname in os.listdir(self.dirs.images)
-                if fname != self.cover
             ]
         }
         # render and write the rest of the templates
         self.logger.info('epub=%r, writing final templates' % self.epub.title)
         render_template('book.ncx.j2', self.dirs.oebps, self.encoding, kwargs)
         render_template('book.opf.j2', self.dirs.oebps, self.encoding, kwargs)
-        render_template('toc.xhtml.j2', self.dirs.oebps, self.encoding, kwargs)
 
     def compress(self, fpath: Optional[str] = None) -> str:
         """compress build and zip content into epub"""
