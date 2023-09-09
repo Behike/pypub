@@ -173,7 +173,7 @@ class EpubBuilder:
             raise RuntimeError('cannot render_chapter before `begin`')
         # log chapter generation
         self.chapters.append((assign, chapter))
-        self.logger.info('rendering chapter #%d: %r' % (
+        self.logger.debug('rendering chapter #%d: %r' % (
             assign.play_order, chapter.title))
         # render chapter w/ appropriate kwargs
         args    = (self.logger, chapter, self.dirs.images, self.template)
@@ -198,7 +198,7 @@ class EpubBuilder:
             ]
         }
         # render and write the rest of the templates
-        self.logger.info('epub=%r, writing final templates' % self.epub.title)
+        self.logger.debug('epub=%r, writing final templates' % self.epub.title)
         render_template('book.ncx.j2', self.dirs.oebps, self.encoding, kwargs)
         render_template('book.opf.j2', self.dirs.oebps, self.encoding, kwargs)
 
@@ -213,7 +213,7 @@ class EpubBuilder:
         fpath = os.path.join(fpath, fname)
         fzip  = fpath.rsplit('.epub', 1)[0] + '.zip'
         # zip contents of directory 
-        self.logger.info('epub=%r, zipping content' % self.epub.title)
+        self.logger.debug('epub=%r, zipping content' % self.epub.title)
         zipf = zipfile.ZipFile(fzip, 'w', zipfile.ZIP_DEFLATED)
         for root, _, files in os.walk(self.dirs.basedir):
             relpath = root.split(self.dirs.basedir, 1)[1]
