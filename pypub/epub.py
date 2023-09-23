@@ -29,7 +29,7 @@ class Epub(EpubSpec):
         """
         id         = f'chapter_{self.last_chapter}'
         order      = self.last_chapter
-        link       = f'{self.last_chapter}.xhtml'
+        link       = f'chapter-{self.last_chapter}.xhtml'
         assignment = Assignment(id, link, order)
         self.last_chapter += 1
         return assignment

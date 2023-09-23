@@ -6,7 +6,7 @@
     <dc:language>{{ epub.language }}</dc:language>
     <dc:rights>{{ epub.rights }}</dc:rights>
     <dc:publisher>{{ epub.publisher }}</dc:publisher>
-    <dc:identifier id="BookId" opf:scheme="UUID">{{ epub.uid }}</dc:identifier>
+    <dc:identifier id="BookId" opf:scheme="UUID">{{ uid }}</dc:identifier>
     <dc:date opf:event="publication">{{ epub.date.isoformat() }}</dc:date>
 
     <meta name="cover" content="cover_img" />

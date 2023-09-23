@@ -237,6 +237,7 @@ class EpubBuilder:
         if not self.dirs or not self.cover:
             raise RuntimeError('cannot index epub before `begin`')
         kwargs = {
+            'uid':      self.uid,
             'epub':     self.epub, 
             'cover':    MimeFile(self.cover, get_extension(self.cover)),
             'styles':   os.listdir(self.dirs.styles),

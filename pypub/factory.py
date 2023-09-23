@@ -111,7 +111,7 @@ def render_images(ctx: 'RenderCtx', chunk_size: int = 8192):
             if not mime:
                 ctx.logger.warning('chapter[%s] cannot identify %r mime' % fmt)
                 continue
-            fname = f'{uuid.uuid4()}.{mime}'
+            fname = f'image-{uuid.uuid4()}.{mime}'
             fpath = os.path.join(ctx.imagedir, fname)
             # read rest of the content into associated file
             with open(fpath, 'wb') as f:
